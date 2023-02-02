@@ -1,8 +1,35 @@
 import re
-from urllib.parse import urlparse
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse, urljoin
+
+# global vars to keep track of links
+visited = set()
+
+STOPWORDS = {"a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any",
+             "are", "aren't", "as", "at", " be", "because", "been", "before", "being", "below",
+             "between", "both", "but", "by", "can't", "cannot", "could", "couldn't", "did", "didn't",
+             "do", "does", "doesn't", "doing", "don't", "down", "during", "each", "few", "for", "from",
+             "further", "had", "hadn't", "has", "hasn't", "have", "haven't", "having", "he", "he'd",
+             "he'll", "he's", "her", "here", "here's", "hers", "herself", "him", "himself", "his", "how",
+             "how's", "i", "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's",
+             "its", "itself", "let's", "me", "more", "most", "mustn't", "my", "myself", "no", "nor", "not",
+             "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out",
+             "over", "own", "same", "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so",
+             "some", "such", "than", "that", "that's", "the", "their", "theirs", "them", "themselves", "then",
+             "there", "there's", "these", "they", "they'd", "they'll", "they're", "they've", "this", "those",
+             "through", "to", "too", "under", "until", "up", "very", "was", "wasn't", "we", "we'd", "we'll", "we're",
+             "we've", "were", "weren't", "what", "what's", "when", "when's", "where", "where's", "which", "while",
+             "who", "who's", "whom", "why", "why's", "with", "won't", "would", "wouldn't", "you", "you'd",
+             "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves",
+             "for", "use", "our", "meet", "can", "also", "be", "na", "using", "will", "many", "based", "new", "title",
+             "show", "may", "says", "reply", "read"}
+
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
+    if not links:
+        # edge case where we didn't find any links
+        return list()
     return [link for link in links if is_valid(link)]
 
 def extract_next_links(url, resp):
@@ -16,11 +43,37 @@ def extract_next_links(url, resp):
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
-    linksFound = set()
-    # if is_valid(url):
+    links = set()
+    if is_valid(url):
+
+        if resp.status >= 200 and resp.status <= 200 and resp.raw_response:
+            # we can actually parse the response since it exists
+            soup = BeautifulSoup(resp.raw_response.content, "lxml")
+            # web_text = soup.get_text()
+            # tokens = tokenize(url, resp)
+
+            for link in soup.find_all('a'):
+                href = link.get("href")
+                if "#" in href:
+                    href = href.partition('#')[0]
 
 
-    return list()
+                # href = urljoin(url, href, allow_fragments=False)
+
+                links.add(href)
+
+
+                # # check if link found is valid before adding it
+                # if is_valid(href):
+    return list(links)
+
+# def scrape(url):
+
+def tokenize(url, resp):
+    # https://stackoverflow.com/questions/46057942/how-to-get-the-text-tokens-when-using-beautifulsoup
+    soup = BeautifulSoup(resp.raw_response.content, "lxml")
+    tokens = soup.stripped_strings
+    return tokens
 
 def is_valid(url: str) -> bool:
     # Decide whether to crawl this url or not.
@@ -50,9 +103,8 @@ def is_valid(url: str) -> bool:
             return False
 
         # The url is not part of ICS/CS/Inf/Stats
-        if re.search(r"(\.ics\.uci\.edu)|(\.cs\.uci\.edu)|(\.informatics\.uci\.edu)|(\.stat\.uci\.edu)", parsed.netloc.lower()) != None:
+        if re.search(r"(\.ics\.uci\.edu)|(\.cs\.uci\.edu)|(\.informatics\.uci\.edu)|(\.stat\.uci\.edu)", parsed.netloc.lower()) == None:
             return False
-
 
         # If it passes everything then it is valid so return true
         return True
