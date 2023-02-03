@@ -1,18 +1,18 @@
 import re
-from bs4 import BeautifulSoup
-from urllib.parse import urlparse, urljoin
-import nltk
+from urllib.parse import urlparse
 
-# global vars to keep track of links
-visited = set()
+from bs4 import BeautifulSoup
 
 # question 1 - unique webpages
 unique_urls = set()
 
 # question 2 - longest page
-longest_page = list("placeholder", 0)
+longest_page = ["placeholder", 0]
 
-STOPWORDS = {"a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any",
+# question 3 - 50 most common words
+common_words = dict()
+
+STOP_WORDS = {"a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any",
              "are", "aren't", "as", "at", " be", "because", "been", "before", "being", "below",
              "between", "both", "but", "by", "can't", "cannot", "could", "couldn't", "did", "didn't",
              "do", "does", "doesn't", "doing", "don't", "down", "during", "each", "few", "for", "from",
@@ -37,6 +37,7 @@ def scraper(url, resp):
     if not links:
         # edge case where we didn't find any links
         return list()
+    generate_answers()
     return [link for link in links if is_valid(link)]
 
 def extract_next_links(url, resp):
@@ -51,37 +52,39 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
     links = set()
-    if is_valid(url):
 
-        # we can actually parse the response since it exists
-        if resp.status >= 200 and resp.status <= 200 and resp.raw_response:
-            soup = BeautifulSoup(resp.raw_response.content, "lxml")
-            
-            # get all the text on the page
-            web_text = soup.get_text()
-            # tokens = tokenize(url, resp)
+    # check if response exists and it is successful
+    # Detect and avoid dead URLs that return a 200 status but no data
+    if url and resp.status >= 200 and resp.status <= 299 and resp.raw_response:
+        soup = BeautifulSoup(resp.raw_response.content, "lxml")
 
-            for link in soup.find_all('a'):
-                href = link.get("href")
+        # get all the text on the page
+        web_text = soup.get_text(separator=' ', strip=True).lower()
 
-                # if href not in visited and is_valid(href):
-                    # if "#" in href:
-                        # href = href.partition('#')[0]
-                links.add(href)
-                # visited.add(href)
+        # remove all non-alpha characters
+        web_text = re.sub('[^A-Za-z]+', ' ', web_text)
 
-                # href = urljoin(url, href, allow_fragments=False)
-                # # check if link found is valid before adding it
-                # if is_valid(href):
+        # split by whitespace
+        tokens = web_text.split()
+
+        # remove stop word tokens and bs tokens
+        tokens = [token for token in tokens if token not in STOP_WORDS and len(token) >= 2]
+
+        # update the token dictionary - q3
+        for token in tokens:
+            if token in common_words:
+                common_words[token] += 1
+            else:
+                common_words[token] = 1
+
+        # scrape the links
+        for link in soup.find_all('a'):
+            href = link.get("href")
+            if href and '#' in href:
+                href = href.partition('#')[0]
+            links.add(href)
+
     return list(links)
-
-# def scrape(url):
-
-def tokenize(url, resp):
-    # https://stackoverflow.com/questions/46057942/how-to-get-the-text-tokens-when-using-beautifulsoup
-    soup = BeautifulSoup(resp.raw_response.content, "lxml")
-    tokens = soup.stripped_strings
-    return tokens
 
 def is_valid(url: str) -> bool:
     # Decide whether to crawl this url or not.
@@ -93,7 +96,7 @@ def is_valid(url: str) -> bool:
             return False
 
         # we already visited the url
-        if url in visited:
+        if url in unique_urls:
             return False
 
         parsed = urlparse(url)
@@ -125,13 +128,20 @@ def is_valid(url: str) -> bool:
         print ("TypeError for ", parsed)
         raise
 
-def generate_answers():    
-    q1_file = open("Question 1.txt", "a")
-    q2_file = open("Question 2.txt", "a")
-    q3_file = open("Question 3.txt", "a")
-    q4_file = open("Question 4.txt", "a")
+def generate_answers():
+    q1_file = open("Question 1.txt", "w")
+    q2_file = open("Question 2.txt", "w")
+    q3_file = open("Question 3.txt", "w")
+    q4_file = open("Question 4.txt", "w")
 
     q1_file.write(f"Number of Unique URLs: {len(unique_urls)}")
     q2_file.write(f"Longest page and number of words: {longest_page[0]} , {longest_page[1]}")
-    q3_file.write("50 most common words in the entire set of pages crawled under these domains: ")
+    q3_file.write("50 most common words in the entire set of pages crawled under these domains:\n")
+    for word, freq in sorted(common_words.items(), key=lambda x: -x[1]):
+        q3_file.write(f"{word} -> {freq}\n")
     q4_file.write("Subdomains in ics.uci.edu and number of unique pages: ")
+
+    q1_file.close()
+    q2_file.close()
+    q3_file.close()
+    q4_file.close()
