@@ -1,9 +1,16 @@
 import re
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
+import nltk
 
 # global vars to keep track of links
 visited = set()
+
+# question 1 - unique webpages
+unique_urls = set()
+
+# question 2 - longest page
+longest_page = list("placeholder", 0)
 
 STOPWORDS = {"a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any",
              "are", "aren't", "as", "at", " be", "because", "been", "before", "being", "below",
@@ -46,23 +53,24 @@ def extract_next_links(url, resp):
     links = set()
     if is_valid(url):
 
+        # we can actually parse the response since it exists
         if resp.status >= 200 and resp.status <= 200 and resp.raw_response:
-            # we can actually parse the response since it exists
             soup = BeautifulSoup(resp.raw_response.content, "lxml")
-            # web_text = soup.get_text()
+            
+            # get all the text on the page
+            web_text = soup.get_text()
             # tokens = tokenize(url, resp)
 
             for link in soup.find_all('a'):
                 href = link.get("href")
-                if "#" in href:
-                    href = href.partition('#')[0]
 
+                # if href not in visited and is_valid(href):
+                    # if "#" in href:
+                        # href = href.partition('#')[0]
+                links.add(href)
+                # visited.add(href)
 
                 # href = urljoin(url, href, allow_fragments=False)
-
-                links.add(href)
-
-
                 # # check if link found is valid before adding it
                 # if is_valid(href):
     return list(links)
@@ -84,10 +92,14 @@ def is_valid(url: str) -> bool:
         if not url:
             return False
 
+        # we already visited the url
+        if url in visited:
+            return False
+
         parsed = urlparse(url)
 
         # The url does not have http or https scheme
-        if parsed.scheme not in set(["http", "https"]):
+        if parsed.scheme not in {"http", "https"}:
             return False
 
         # The url points to a file and not a webpage
@@ -112,3 +124,14 @@ def is_valid(url: str) -> bool:
     except TypeError:
         print ("TypeError for ", parsed)
         raise
+
+def generate_answers():    
+    q1_file = open("Question 1.txt", "a")
+    q2_file = open("Question 2.txt", "a")
+    q3_file = open("Question 3.txt", "a")
+    q4_file = open("Question 4.txt", "a")
+
+    q1_file.write(f"Number of Unique URLs: {len(unique_urls)}")
+    q2_file.write(f"Longest page and number of words: {longest_page[0]} , {longest_page[1]}")
+    q3_file.write("50 most common words in the entire set of pages crawled under these domains: ")
+    q4_file.write("Subdomains in ics.uci.edu and number of unique pages: ")
