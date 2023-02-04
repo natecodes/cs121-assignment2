@@ -1,10 +1,13 @@
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlsplit, urljoin
 
 from bs4 import BeautifulSoup
 
 # question 1 - unique webpages
 unique_urls = set()
+
+# testing
+all_urls = set()
 
 # question 2 - longest page
 longest_page = ["placeholder", 0]
@@ -32,11 +35,20 @@ STOP_WORDS = {"a", "about", "above", "after", "again", "against", "all", "am", "
              "show", "may", "says", "reply", "read"}
 
 
+count = 1
 def scraper(url, resp):
+    out_file = open("Out.txt", 'a')
+    global count
+    out_file.write(f'Scraper has run {count} times\n')
+    count += 1
+    out_file.close()
+
     links = extract_next_links(url, resp)
+
+    # edge case where we didn't find any links
     if not links:
-        # edge case where we didn't find any links
         return list()
+
     generate_answers()
     return [link for link in links if is_valid(link)]
 
@@ -56,6 +68,11 @@ def extract_next_links(url, resp):
     # check if response exists and it is successful
     # Detect and avoid dead URLs that return a 200 status but no data
     if url and resp.status >= 200 and resp.status <= 299 and resp.raw_response:
+
+        # defragment and add the unique url
+        unique_urls.add(url.partition('#')[0])
+        all_urls.add(url)
+
         soup = BeautifulSoup(resp.raw_response.content, "lxml")
 
         # get all the text on the page
@@ -87,6 +104,8 @@ def extract_next_links(url, resp):
     return list(links)
 
 def is_valid(url: str) -> bool:
+
+    # return False
     # Decide whether to crawl this url or not.
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
@@ -95,11 +114,13 @@ def is_valid(url: str) -> bool:
         if not url:
             return False
 
-        # we already visited the url
-        if url in unique_urls:
-            return False
+        url = url.lower()
+        # don't use urlparse because of params / outdated format
+        parsed = urlsplit(url)
 
-        parsed = urlparse(url)
+        # we already visited the url
+        # if url in unique_urls:
+        #     return False
 
         # The url does not have http or https scheme
         if parsed.scheme not in {"http", "https"}:
@@ -117,8 +138,11 @@ def is_valid(url: str) -> bool:
                 + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
             return False
 
+        if '.pdf' in url or '/pdf/' in url:
+            return False
+
         # The url is not part of ICS/CS/Inf/Stats
-        if re.search(r"(\.ics\.uci\.edu)|(\.cs\.uci\.edu)|(\.informatics\.uci\.edu)|(\.stat\.uci\.edu)", parsed.netloc.lower()) == None:
+        if re.search(r"(\.ics\.uci\.edu)|(\.cs\.uci\.edu)|(\.informatics\.uci\.edu)|(\.stat\.uci\.edu)", parsed.netloc) == None:
             return False
 
         # If it passes everything then it is valid so return true
@@ -134,9 +158,17 @@ def generate_answers():
     q3_file = open("Question 3.txt", "w")
     q4_file = open("Question 4.txt", "w")
 
-    q1_file.write(f"Number of Unique URLs: {len(unique_urls)}")
-    q2_file.write(f"Longest page and number of words: {longest_page[0]} , {longest_page[1]}")
-    q3_file.write("50 most common words in the entire set of pages crawled under these domains:\n")
+    q1_file.write(f"\n\nNumber of Unique URLs: {len(unique_urls)}\n\n")
+    for url in unique_urls:
+        q1_file.write(url + "\n")
+
+    q1_file.write("\n\nALL URLS:\n\n")
+
+    for url in all_urls:
+        q1_file.write(url + "\n")
+
+    q2_file.write(f"\n\nLongest page and number of words: {longest_page[0]} , {longest_page[1]}\n\n")
+    q3_file.write("\n\n50 most common words in the entire set of pages crawled under these domains:\n")
     for word, freq in sorted(common_words.items(), key=lambda x: -x[1]):
         q3_file.write(f"{word} -> {freq}\n")
     q4_file.write("Subdomains in ics.uci.edu and number of unique pages: ")
