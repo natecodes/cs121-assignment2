@@ -1,5 +1,6 @@
 import re
 from urllib.parse import urlsplit, urljoin
+from urllib.robotparser import RobotFileParser
 
 from bs4 import BeautifulSoup
 
@@ -34,17 +35,25 @@ STOP_WORDS = {"a", "about", "above", "after", "again", "against", "all", "am", "
              "for", "use", "our", "meet", "can", "also", "be", "na", "using", "will", "many", "based", "new", "title",
              "show", "may", "says", "reply", "read"}
 
+# fetch the robots.txt
+ICS_ROBOTS_TXT = RobotFileParser('https://www.ics.uci.edu/robots.txt')
+CS_ROBOTS_TXT = RobotFileParser('https://www.cs.uci.edu/robots.txt')
+STAT_ROBOTS_TXT = RobotFileParser('https://www.stat.uci.edu/robots.txt')
+INF_ROBOTS_TXT = RobotFileParser('https://www.informatics.uci.edu/robots.txt')
+ICS_ROBOTS_TXT.read()
+CS_ROBOTS_TXT.read()
+STAT_ROBOTS_TXT.read()
+INF_ROBOTS_TXT.read()
 
 count = 1
 def scraper(url, resp):
-    out_file = open("Out.txt", 'a')
+    out_file = open("Outa.txt", 'a')
     global count
     out_file.write(f'Scraper has run {count} times\n')
     count += 1
     out_file.close()
 
     links = extract_next_links(url, resp)
-
     # edge case where we didn't find any links
     if not links:
         return list()
@@ -138,12 +147,53 @@ def is_valid(url: str) -> bool:
                 + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
             return False
 
-        if '.pdf' in url or '/pdf/' in url:
+        if '.pdf' in parsed.path or '/pdf/' in parsed.path:
             return False
 
         # The url is not part of ICS/CS/Inf/Stats
         if re.search(r"(\.ics\.uci\.edu)|(\.cs\.uci\.edu)|(\.informatics\.uci\.edu)|(\.stat\.uci\.edu)", parsed.netloc) == None:
             return False
+
+        # check robots.txt extra credit
+        if 'ics.uci.edu' in parsed.netloc:
+            if not ICS_ROBOTS_TXT.can_fetch('*', url):
+                return False
+        elif 'cs.uci.edu' in parsed.netloc:
+            if not CS_ROBOTS_TXT.can_fetch('*', url):
+                return False
+        elif 'stat.uci.edu' in parsed.netloc:
+            if not STAT_ROBOTS_TXT.can_fetch('*', url):
+                return False
+        elif 'informatics.uci.edu' in parsed.netloc:
+            if not INF_ROBOTS_TXT.can_fetch('*', url):
+                return False
+
+        # this was my manual implementation until I found the robotparser module...
+        # if 'ics.uci.edu' in parsed.netloc:
+        #     if parsed.path.startswith('/bin/') or parsed.path.startswith('/~mpufal/'):
+        #         return False
+        # elif 'cs.uci.edu' in parsed.netloc:
+        #     if parsed.path.startswith('/wp-admin/'):
+        #         if not 'wp-admin/admin-ajax.php' in parsed.path:
+        #             return False
+        # elif 'stat.uci.edu' in parsed.netloc:
+        #     if parsed.path.startswith('/wp-admin/'):
+        #         if not 'wp-admin/admin-ajax.php' in parsed.path:
+        #             return False
+        # elif 'informatics.uci.edu' in parsed.netloc:
+        #     if parsed.path.startswith('/wp-admin/'):
+        #         if not 'wp-admin/admin-ajax.php' in parsed.path:
+        #             return False
+        #     elif parsed.path.startswith('/research/'):
+        #         if not '/research/labs-centers/' in parsed.path and \
+        #             not '/research/areas-of-expertise/' in parsed.path and \
+        #             not '/research/example-research-projects/' in parsed.path and \
+        #             not '/research/phd-research/' in parsed.path and \
+        #             not '/research/past-dissertations/' in parsed.path and \
+        #             not '/research/masters-research/' in parsed.path and \
+        #             not '/research/undergraduate-research/' in parsed.path and \
+        #             not '/research/gifts-grants/' in parsed.path:
+        #             return False
 
         # If it passes everything then it is valid so return true
         return True
@@ -153,10 +203,10 @@ def is_valid(url: str) -> bool:
         raise
 
 def generate_answers():
-    q1_file = open("Question 1.txt", "w")
-    q2_file = open("Question 2.txt", "w")
-    q3_file = open("Question 3.txt", "w")
-    q4_file = open("Question 4.txt", "w")
+    q1_file = open("Question 1a.txt", "w")
+    q2_file = open("Question 2a.txt", "w")
+    q3_file = open("Question 3a.txt", "w")
+    q4_file = open("Question 4a.txt", "w")
 
     q1_file.write(f"\n\nNumber of Unique URLs: {len(unique_urls)}\n\n")
     for url in unique_urls:
