@@ -1,14 +1,9 @@
 import re
-from urllib.parse import urlsplit, urljoin
+from urllib.parse import urlsplit, urldefrag
 from urllib.robotparser import RobotFileParser
+import lxml.html
 
 from bs4 import BeautifulSoup
-
-# question 1 - unique webpages
-unique_urls = set()
-
-# testing
-all_urls = set()
 
 # question 2 - longest page
 longest_page = ["placeholder", 0]
@@ -45,42 +40,15 @@ CS_ROBOTS_TXT.read()
 STAT_ROBOTS_TXT.read()
 INF_ROBOTS_TXT.read()
 
-count = 1
 def scraper(url, resp):
-    out_file = open("Outa.txt", 'a')
-    global count
-    out_file.write(f'Scraper has run {count} times\n')
-    count += 1
-    out_file.close()
-
     links = extract_next_links(url, resp)
     # edge case where we didn't find any links
     if not links:
         return list()
 
-    generate_answers()
-    return [link for link in links if is_valid(link)]
-
-def extract_next_links(url, resp):
-    # Implementation required.
-    # url: the URL that was used to get the page
-    # resp.url: the actual url of the page
-    # resp.status: the status code returned by the server. 200 is OK, you got the page. Other numbers mean that there was some kind of problem.
-    # resp.error: when status is not 200, you can check the error here, if needed.
-    # resp.raw_response: this is where the page actually is. More specifically, the raw_response has two parts:
-    #         resp.raw_response.url: the url, again
-    #         resp.raw_response.content: the content of the page!
-    # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-
-    links = set()
-
     # check if response exists and it is successful
     # Detect and avoid dead URLs that return a 200 status but no data
     if url and resp.status >= 200 and resp.status <= 299 and resp.raw_response:
-
-        # defragment and add the unique url
-        unique_urls.add(url.partition('#')[0])
-        all_urls.add(url)
 
         soup = BeautifulSoup(resp.raw_response.content, "lxml")
 
@@ -103,18 +71,28 @@ def extract_next_links(url, resp):
             else:
                 common_words[token] = 1
 
-        # scrape the links
-        for link in soup.find_all('a'):
-            href = link.get("href")
-            if href and '#' in href:
-                href = href.partition('#')[0]
-            links.add(href)
+    return [link for link in links if is_valid(link)]
 
-    return list(links)
+def extract_next_links(url, resp):
+    # Implementation required.
+    # url: the URL that was used to get the page
+    # resp.url: the actual url of the page
+    # resp.status: the status code returned by the server. 200 is OK, you got the page. Other numbers mean that there was some kind of problem.
+    # resp.error: when status is not 200, you can check the error here, if needed.
+    # resp.raw_response: this is where the page actually is. More specifically, the raw_response has two parts:
+    #         resp.raw_response.url: the url, again
+    #         resp.raw_response.content: the content of the page!
+    # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
+    if not(url and resp.status >= 200 and resp.status <= 299 and resp.raw_response):
+        return []
+    html = lxml.html.fromstring(resp.raw_response.content)
+    html.make_links_absolute(url)
+    new_urls = list({urldefrag(link[2])[0] for link in html.iterlinks()})
+    return new_urls
+
 
 def is_valid(url: str) -> bool:
 
-    # return False
     # Decide whether to crawl this url or not.
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
@@ -148,6 +126,9 @@ def is_valid(url: str) -> bool:
             return False
 
         if '.pdf' in parsed.path or '/pdf/' in parsed.path:
+            return False
+
+        if 'json' in parsed.path or 'embed' in parsed.path:
             return False
 
         # The url is not part of ICS/CS/Inf/Stats
@@ -202,28 +183,3 @@ def is_valid(url: str) -> bool:
         print ("TypeError for ", parsed)
         raise
 
-def generate_answers():
-    q1_file = open("Question 1a.txt", "w")
-    q2_file = open("Question 2a.txt", "w")
-    q3_file = open("Question 3a.txt", "w")
-    q4_file = open("Question 4a.txt", "w")
-
-    q1_file.write(f"\n\nNumber of Unique URLs: {len(unique_urls)}\n\n")
-    for url in unique_urls:
-        q1_file.write(url + "\n")
-
-    q1_file.write("\n\nALL URLS:\n\n")
-
-    for url in all_urls:
-        q1_file.write(url + "\n")
-
-    q2_file.write(f"\n\nLongest page and number of words: {longest_page[0]} , {longest_page[1]}\n\n")
-    q3_file.write("\n\n50 most common words in the entire set of pages crawled under these domains:\n")
-    for word, freq in sorted(common_words.items(), key=lambda x: -x[1]):
-        q3_file.write(f"{word} -> {freq}\n")
-    q4_file.write("Subdomains in ics.uci.edu and number of unique pages: ")
-
-    q1_file.close()
-    q2_file.close()
-    q3_file.close()
-    q4_file.close()
