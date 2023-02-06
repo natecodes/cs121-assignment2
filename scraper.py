@@ -41,6 +41,7 @@ STAT_ROBOTS_TXT.read()
 INF_ROBOTS_TXT.read()
 
 def scraper(url, resp):
+    global longest_page
     links = extract_next_links(url, resp)
     # edge case where we didn't find any links
     if not links:
@@ -64,6 +65,13 @@ def scraper(url, resp):
         # remove stop word tokens and bs tokens
         tokens = [token for token in tokens if token not in STOP_WORDS and len(token) >= 2]
 
+        if len(tokens) < 100:
+            return []
+
+        if len(tokens) > longest_page[1]:
+            longest_page[0] = url
+            longest_page[1] = len(tokens)
+
         # update the token dictionary - q3
         for token in tokens:
             if token in common_words:
@@ -85,10 +93,13 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
     if not(url and resp.status >= 200 and resp.status <= 299 and resp.raw_response):
         return []
-    html = lxml.html.fromstring(resp.raw_response.content)
-    html.make_links_absolute(url)
-    new_urls = list({urldefrag(link[2])[0] for link in html.iterlinks()})
-    return new_urls
+    try:
+        html = lxml.html.fromstring(resp.raw_response.content)
+        html.make_links_absolute(url)
+        new_urls = list({urldefrag(link[2])[0] for link in html.iterlinks()})
+        return new_urls
+    except:
+        return []
 
 
 def is_valid(url: str) -> bool:
@@ -111,6 +122,17 @@ def is_valid(url: str) -> bool:
 
         # The url does not have http or https scheme
         if parsed.scheme not in {"http", "https"}:
+            return False
+
+        # API query
+        if parsed.query != '':
+            return False
+
+        if "/sao" in url or "php/" in url:
+            return False
+
+        paths = parsed.path.split('/')
+        if len(paths) != len(set(paths)):
             return False
 
         # The url points to a file and not a webpage

@@ -36,6 +36,7 @@ class Worker(Thread):
                 self.frontier.add_url(scraped_url)
             self.frontier.mark_url_complete(tbd_url)
             time.sleep(self.config.time_delay)
+            self.generate_answers()
 
     def generate_answers(self):
         q1_file = open("Question 1a.txt", "w")
