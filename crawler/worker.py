@@ -6,6 +6,9 @@ from utils import get_logger
 import scraper
 import time
 
+from collections import defaultdict
+from urllib.parse import urlsplit
+
 from scraper import longest_page, common_words
 
 class Worker(Thread):

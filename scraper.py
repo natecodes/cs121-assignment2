@@ -73,7 +73,7 @@ def extract_next_links(url, resp):
         # remove stop word tokens and bs tokens
         tokens = [token for token in tokens if token not in STOP_WORDS and len(token) >= 2]
 
-        if len(tokens) < 100:
+        if len(tokens) < 25:
             return []
 
         if len(tokens) > longest_page[1]:
@@ -92,12 +92,17 @@ def extract_next_links(url, resp):
             href = link.get("href")
             if href and '#' in href:
                 href = href.partition('#')[0]
+            if href == None or len(href) == 0:
+                continue
             parsed = urlsplit(href)
 
             # Convert relative url to absolute url
             if parsed.netloc == '':
+                if url[-1] == '/':
+                    url = url[:-1]
+                if href[0] != '/':
+                    href = '/' + href
                 href = url + href
-            href.replace('//', '/')
             links.add(href)
 
     return list(links)
@@ -140,7 +145,17 @@ def is_valid(url: str) -> bool:
         if '.pdf' in parsed.path or '/pdf/' in parsed.path:
             return False
 
-        if 'json' in parsed.path or 'embed' in parsed.path:
+        if 'json' in parsed.path or 'embed' in parsed.path or '.php' in parsed.path or 'javascript' in parsed.path:
+            return False
+            
+        if 'mailto' in parsed.path:
+            return False
+        
+        if parsed.query != '':
+            return False
+        
+        paths = [p for p in parsed.path.split('/') if len(p) > 0]
+        if len(paths) != len(set(paths)):
             return False
 
         # The url is not part of ICS/CS/Inf/Stats
