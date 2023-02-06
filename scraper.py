@@ -73,9 +73,6 @@ def extract_next_links(url, resp):
         # remove stop word tokens and bs tokens
         tokens = [token for token in tokens if token not in STOP_WORDS and len(token) >= 2]
 
-        if len(tokens) < 25:
-            return []
-
         if len(tokens) > longest_page[1]:
             longest_page[0] = url
             longest_page[1] = len(tokens)
@@ -149,9 +146,6 @@ def is_valid(url: str) -> bool:
             return False
             
         if 'mailto' in parsed.path:
-            return False
-        
-        if parsed.query != '':
             return False
         
         paths = [p for p in parsed.path.split('/') if len(p) > 0]
