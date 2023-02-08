@@ -47,11 +47,11 @@ INF_ROBOTS_TXT.read()
 
 count = 1
 def scraper(url, resp):
-    out_file = open("Outa.txt", 'a')
-    global count
-    out_file.write(f'Scraper has run {count} times\n')
-    count += 1
-    out_file.close()
+    # out_file = open("Outa.txt", 'a')
+    # global count
+    # out_file.write(f'Scraper has run {count} times\n')
+    # count += 1
+    # out_file.close()
 
     links = extract_next_links(url, resp)
     # edge case where we didn't find any links
@@ -93,11 +93,16 @@ def extract_next_links(url, resp):
         # split by whitespace
         tokens = web_text.split()
 
-        # remove stop word tokens and bs tokens
-        tokens = [token for token in tokens if token not in STOP_WORDS and len(token) >= 2]
+        # question 2
+        if len(tokens) > longest_page[1]:
+            longest_page[0] = url
+            longest_page[1] = len(tokens)
 
-        # update the token dictionary - q3
-        for token in tokens:
+        # remove stop word tokens and bs tokens
+        tokens_without_stop = [token for token in tokens if token not in STOP_WORDS and len(token) >= 2]
+
+        # update the token dictionary - question 3
+        for token in tokens_without_stop:
             if token in common_words:
                 common_words[token] += 1
             else:
