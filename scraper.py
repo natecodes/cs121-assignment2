@@ -4,11 +4,11 @@ from urllib.robotparser import RobotFileParser
 
 from bs4 import BeautifulSoup
 
-# question 1 - unique webpages
-unique_urls = set()
-
 # testing
 all_urls = set()
+
+# question 1 - unique webpages
+unique_urls = set()
 
 # question 2 - longest page
 longest_page = ["placeholder", 0]
@@ -18,6 +18,12 @@ common_words = dict()
 
 # question 4
 ics_subdomains = dict()
+
+# extra credit similarity hash
+url_and_tokens = dict()
+url_and_tokens_exact_match = dict()
+
+bad_urls = set()
 
 STOP_WORDS = {"a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any",
              "are", "aren't", "as", "at", " be", "because", "been", "before", "being", "below",
@@ -71,7 +77,7 @@ def extract_next_links(url, resp):
     links = set()
     # check if response exists and it is successful
     # Detect and avoid dead URLs that return a 200 status but no data
-    if url and resp.status >= 200 and resp.status <= 299 and resp.raw_response:
+    if url and not url in bad_urls and resp.status >= 200 and resp.status <= 299 and resp.raw_response:
 
         # defragment and add the unique url
         unique_urls.add(url.partition('#')[0])
@@ -85,8 +91,15 @@ def extract_next_links(url, resp):
         # remove all non-alpha characters
         web_text = re.sub('[^A-Za-z]+', ' ', web_text)
 
-        # split by whitespace
+        # split by whitespace, 'tokens' is the list of all words on the page
         tokens = web_text.split()
+
+        if is_exact_same(tokens):
+            return list()
+
+        # similarity hashing - extra credit
+        url_and_tokens_exact_match[url] = hash(tokens)
+        url_and_tokens[url] = set(tokens)
 
         # question 2
         if len(tokens) > longest_page[1]:
@@ -128,6 +141,9 @@ def extract_next_links(url, resp):
                     href = '/' + href
                 href = url + href
             links.add(href)
+    else:
+        # we know that it's a bad url
+        bad_urls.add(url)
     return list(links)
 
 def is_valid(url: str) -> bool:
@@ -156,7 +172,7 @@ def is_valid(url: str) -> bool:
                 + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
                 + r"|epub|dll|cnf|tgz|sha1"
                 + r"|thmx|mso|arff|rtf|jar|csv"
-                + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
+                + r"|rm|smil|wmv|swf|wma|zip|rar|gz|bib)$", parsed.path.lower()):
             return False
 
         if 'pdf' in parsed.path or '/pdf/' in parsed.path:
@@ -240,3 +256,17 @@ def generate_answers():
     q2_file.close()
     q3_file.close()
     q4_file.close()
+
+# def is_exact_same_page(current_page_tokens: list) -> bool:
+#     current_page_tokens_set = set(current_page_tokens)
+#     for other_page_tokens in url_and_tokens.values():
+#         if current_page_tokens_set == set(other_page_tokens) and len(current_page_tokens) == len(other_page_tokens):
+#             return True
+#     return False
+
+def is_exact_same(tokens: list) -> bool:
+    if hash(tokens) in url_and_tokens_exact_match.values():
+        return True
+    return False
+
+# def is_similar(tokens: list) -> bool:
