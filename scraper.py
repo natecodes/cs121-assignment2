@@ -4,12 +4,6 @@ from urllib.robotparser import RobotFileParser
 
 from bs4 import BeautifulSoup
 
-# question 1 - unique webpages
-unique_urls = set()
-
-# testing
-all_urls = set()
-
 # question 2 - longest page
 longest_page = ["placeholder", 0]
 
@@ -45,7 +39,6 @@ CS_ROBOTS_TXT.read()
 STAT_ROBOTS_TXT.read()
 INF_ROBOTS_TXT.read()
 
-count = 1
 def scraper(url, resp):
     # out_file = open("Outa.txt", 'a')
     # global count
@@ -54,11 +47,6 @@ def scraper(url, resp):
     # out_file.close()
 
     links = extract_next_links(url, resp)
-    # edge case where we didn't find any links
-    if not links:
-        return list()
-
-    generate_answers()
     return [link for link in links if is_valid(link)]
 
 def extract_next_links(url, resp):
@@ -77,11 +65,6 @@ def extract_next_links(url, resp):
     # check if response exists and it is successful
     # Detect and avoid dead URLs that return a 200 status but no data
     if url and resp.status >= 200 and resp.status <= 299 and resp.raw_response:
-
-        # defragment and add the unique url
-        unique_urls.add(url.partition('#')[0])
-        all_urls.add(url)
-
         soup = BeautifulSoup(resp.raw_response.content, "lxml")
 
         # get all the text on the page
@@ -113,6 +96,17 @@ def extract_next_links(url, resp):
             href = link.get("href")
             if href and '#' in href:
                 href = href.partition('#')[0]
+            if href == None or len(href) == 0:
+                continue
+            parsed = urlsplit(href)
+
+            # Convert relative url to absolute url
+            if parsed.netloc == '':
+                if url[-1] == '/':
+                    url = url[:-1]
+                if href[0] != '/':
+                    href = '/' + href
+                href = url + href
             links.add(href)
 
     return list(links)
@@ -153,6 +147,16 @@ def is_valid(url: str) -> bool:
             return False
 
         if '.pdf' in parsed.path or '/pdf/' in parsed.path:
+            return False
+
+        if 'json' in parsed.path or 'embed' in parsed.path or '.php' in parsed.path or 'javascript' in parsed.path:
+            return False
+            
+        if 'mailto' in parsed.path:
+            return False
+        
+        paths = [p for p in parsed.path.split('/') if len(p) > 0]
+        if len(paths) != len(set(paths)):
             return False
 
         # The url is not part of ICS/CS/Inf/Stats
@@ -206,29 +210,3 @@ def is_valid(url: str) -> bool:
     except TypeError:
         print ("TypeError for ", parsed)
         raise
-
-def generate_answers():
-    q1_file = open("Question 1a.txt", "w")
-    q2_file = open("Question 2a.txt", "w")
-    q3_file = open("Question 3a.txt", "w")
-    q4_file = open("Question 4a.txt", "w")
-
-    q1_file.write(f"\n\nNumber of Unique URLs: {len(unique_urls)}\n\n")
-    for url in unique_urls:
-        q1_file.write(url + "\n")
-
-    q1_file.write("\n\nALL URLS:\n\n")
-
-    for url in all_urls:
-        q1_file.write(url + "\n")
-
-    q2_file.write(f"\n\nLongest page and number of words: {longest_page[0]} , {longest_page[1]}\n\n")
-    q3_file.write("\n\n50 most common words in the entire set of pages crawled under these domains:\n")
-    for word, freq in sorted(common_words.items(), key=lambda x: -x[1]):
-        q3_file.write(f"{word} -> {freq}\n")
-    q4_file.write("Subdomains in ics.uci.edu and number of unique pages: ")
-
-    q1_file.close()
-    q2_file.close()
-    q3_file.close()
-    q4_file.close()
