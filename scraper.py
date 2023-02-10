@@ -1,5 +1,5 @@
 import re
-from urllib.parse import urlsplit, urljoin
+from urllib.parse import urlsplit
 from urllib.robotparser import RobotFileParser
 
 from bs4 import BeautifulSoup
@@ -15,6 +15,9 @@ longest_page = ["placeholder", 0]
 
 # question 3 - 50 most common words
 common_words = dict()
+
+# question 4
+ics_subdomains = dict()
 
 STOP_WORDS = {"a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any",
              "are", "aren't", "as", "at", " be", "because", "been", "before", "being", "below",
@@ -45,14 +48,7 @@ CS_ROBOTS_TXT.read()
 STAT_ROBOTS_TXT.read()
 INF_ROBOTS_TXT.read()
 
-count = 1
 def scraper(url, resp):
-    out_file = open("Outa.txt", 'a')
-    global count
-    out_file.write(f'Scraper has run {count} times\n')
-    count += 1
-    out_file.close()
-
     links = extract_next_links(url, resp)
     # edge case where we didn't find any links
     if not links:
@@ -73,7 +69,6 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
     links = set()
-
     # check if response exists and it is successful
     # Detect and avoid dead URLs that return a 200 status but no data
     if url and resp.status >= 200 and resp.status <= 299 and resp.raw_response:
@@ -81,7 +76,7 @@ def extract_next_links(url, resp):
         # defragment and add the unique url
         unique_urls.add(url.partition('#')[0])
         all_urls.add(url)
-
+        parsed = urlsplit(url)
         soup = BeautifulSoup(resp.raw_response.content, "lxml")
 
         # get all the text on the page
@@ -93,28 +88,49 @@ def extract_next_links(url, resp):
         # split by whitespace
         tokens = web_text.split()
 
-        # remove stop word tokens and bs tokens
-        tokens = [token for token in tokens if token not in STOP_WORDS and len(token) >= 2]
+        # question 2
+        if len(tokens) > longest_page[1]:
+            longest_page[0] = url
+            longest_page[1] = len(tokens)
 
-        # update the token dictionary - q3
-        for token in tokens:
-            if token in common_words:
-                common_words[token] += 1
+        # remove stop word tokens and bs tokens
+        tokens_without_stop = [token for token in tokens if token not in STOP_WORDS and len(token) >= 2]
+
+        # update the token dictionary - question 3
+        for word in tokens_without_stop:
+            if word in common_words:
+                common_words[word] += 1
             else:
-                common_words[token] = 1
+                common_words[word] = 1
+
+        # count subdomains - question 4
+        if re.search(r"(\.ics\.uci\.edu)", parsed.netloc.lower()):
+            if parsed.netloc.lower() in ics_subdomains:
+                ics_subdomains[parsed.netloc.lower()] += 1
+            else:
+                ics_subdomains[parsed.netloc.lower()] = 1
 
         # scrape the links
         for link in soup.find_all('a'):
             href = link.get("href")
+            # defragment
             if href and '#' in href:
                 href = href.partition('#')[0]
-            links.add(href)
+            if not href or len(href) == 0:
+                continue
 
+            # Convert relative url to absolute url
+            if parsed.netloc == '':
+                # we know it's a relative url now
+                if url[-1] == '/':
+                    url = url[:-1]
+                if href[0] != '/':
+                    href = '/' + href
+                href = url + href
+            links.add(href)
     return list(links)
 
 def is_valid(url: str) -> bool:
-
-    # return False
     # Decide whether to crawl this url or not.
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
@@ -126,10 +142,6 @@ def is_valid(url: str) -> bool:
         url = url.lower()
         # don't use urlparse because of params / outdated format
         parsed = urlsplit(url)
-
-        # we already visited the url
-        # if url in unique_urls:
-        #     return False
 
         # The url does not have http or https scheme
         if parsed.scheme not in {"http", "https"}:
@@ -147,7 +159,7 @@ def is_valid(url: str) -> bool:
                 + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
             return False
 
-        if '.pdf' in parsed.path or '/pdf/' in parsed.path:
+        if 'pdf' in parsed.path or '/pdf/' in parsed.path:
             return False
 
         # The url is not part of ICS/CS/Inf/Stats
@@ -203,10 +215,10 @@ def is_valid(url: str) -> bool:
         raise
 
 def generate_answers():
-    q1_file = open("Question 1a.txt", "w")
-    q2_file = open("Question 2a.txt", "w")
-    q3_file = open("Question 3a.txt", "w")
-    q4_file = open("Question 4a.txt", "w")
+    q1_file = open("Question 1.txt", "w")
+    q2_file = open("Question 2.txt", "w")
+    q3_file = open("Question 3.txt", "w")
+    q4_file = open("Question 4.txt", "w")
 
     q1_file.write(f"\n\nNumber of Unique URLs: {len(unique_urls)}\n\n")
     for url in unique_urls:
@@ -221,7 +233,8 @@ def generate_answers():
     q3_file.write("\n\n50 most common words in the entire set of pages crawled under these domains:\n")
     for word, freq in sorted(common_words.items(), key=lambda x: -x[1]):
         q3_file.write(f"{word} -> {freq}\n")
-    q4_file.write("Subdomains in ics.uci.edu and number of unique pages: ")
+    for subdomain, freq in sorted(ics_subdomains.items(), key=lambda x: x[0]):
+        q4_file.write(f"Subdomains in ics.uci.edu and number of unique pages: {subdomain} -> {freq}\n")
 
     q1_file.close()
     q2_file.close()
