@@ -24,6 +24,8 @@ url_and_tokens = dict()
 url_and_tokens_exact_match = dict()
 
 bad_urls = set()
+# similarity checking
+page_tokens = dict()
 
 STOP_WORDS = {"a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any",
              "are", "aren't", "as", "at", " be", "because", "been", "before", "being", "below",
@@ -108,6 +110,10 @@ def extract_next_links(url, resp):
 
         # remove stop word tokens and bs tokens
         tokens_without_stop = [token for token in tokens if token not in STOP_WORDS and len(token) >= 2]
+
+        # Do not extract links if we already know that this page is similar
+        if similar(url, tokens_without_stop):
+            return []
 
         # update the token dictionary - question 3
         for word in tokens_without_stop:
@@ -229,6 +235,22 @@ def is_valid(url: str) -> bool:
     except TypeError:
         print ("TypeError for ", parsed)
         raise
+
+def similar(url, tokens):
+    if url not in page_tokens:
+        token_set = set(tokens) #get unique tokens for url
+        for value in page_tokens.values(): #go through all previously scraped pages
+            tokens_inter = value.intersection(token_set) #get intersection
+            tokens_union = value.union(token_set)
+            if len(tokens_inter) > 0:
+                #check intersection/current tokenlist ratio, if over threshold return True(similar), else continue
+                if len(tokens_inter) / len(tokens_union) > 0.9: 
+                    return True
+        #add url and unique tokens to list
+        page_tokens[url] = token_set
+        return False #not similar
+    else:
+            return True
 
 def generate_answers():
     q1_file = open("Question 1.txt", "w")
