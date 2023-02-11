@@ -139,7 +139,8 @@ def extract_next_links(url, resp):
                 continue
 
             # Convert relative url to absolute url
-            if parsed.netloc == '':
+            parsed_scraped_url = urlsplit(href)
+            if parsed_scraped_url.netloc == '':
                 # we know it's a relative url now
                 if url[-1] == '/':
                     url = url[:-1]
@@ -258,17 +259,17 @@ def generate_answers():
     q3_file = open("Question 3.txt", "w")
     q4_file = open("Question 4.txt", "w")
 
-    q1_file.write(f"\n\nNumber of Unique URLs: {len(unique_urls)}\n\n")
+    q1_file.write(f"Number of Unique URLs: {len(unique_urls)}\n\n")
     for url in unique_urls:
         q1_file.write(url + "\n")
 
-    q1_file.write("\n\nALL URLS:\n\n")
+    q1_file.write(f"ALL URLS: {len(all_urls)}\n\n")
 
     for url in all_urls:
         q1_file.write(url + "\n")
 
-    q2_file.write(f"\n\nLongest page and number of words: {longest_page[0]} , {longest_page[1]}\n\n")
-    q3_file.write("\n\n50 most common words in the entire set of pages crawled under these domains:\n")
+    q2_file.write(f"Longest page and number of words: {longest_page[0]} , {longest_page[1]}")
+    q3_file.write("50 most common words in the entire set of pages crawled under these domains:\n")
     for word, freq in sorted(common_words.items(), key=lambda x: -x[1]):
         q3_file.write(f"{word} -> {freq}\n")
     for subdomain, freq in sorted(ics_subdomains.items(), key=lambda x: x[0]):
